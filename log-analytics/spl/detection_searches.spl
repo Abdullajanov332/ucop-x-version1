@@ -1,0 +1,89 @@
+# UCOP-X SPL Detection Searches
+# Splunk Search Processing Language queries
+
+# --- Brute Force Detection ---
+index=windows_security EventCode=4625
+| stats count as FailedLogons, dc(Account_Name) as UniqueAccounts by src_ip
+| where FailedLogons > 10
+| eval alert_name="Possible Brute Force Attack", severity="high"
+| table src_ip, FailedLogons, UniqueAccounts, alert_name, severity
+
+# --- Lateral Movement Detection ---
+index=windows_security EventCode=4624 LogonType=3
+| stats dc(Computer_Name) as TargetCount, values(Computer_Name) as Targets by Account_Name, IpAddress
+| where TargetCount > 5
+| eval alert_name="Possible Lateral Movement", severity="critical"
+| table Account_Name, IpAddress, TargetCount, Targets, alert_name
+
+# --- PowerShell Obfuscation ---
+index=windows_powershell
+| search "*EncodedCommand*" OR "*-enc *" OR "*FromBase64String*" OR "*Invoke-Expression*"
+| stats count by host, user
+| eval alert_name="Suspicious PowerShell Activity", severity="medium"
+| table host, user, count, alert_name
+
+# --- Service Installation for Persistence ---
+index=windows_system EventCode=7045
+| search Service_Name=* OR Image_Path=*
+| eval alert_name="New Service Installed", severity="medium"
+| table _time, host, Service_Name, Service_Type, Image_Path, alert_name
+
+# --- Malicious Network Connection ---
+index=windows_netconn
+| search DestinationPort=4444 OR DestinationPort=6666 OR DestinationPort=8888 OR DestinationPort=9999
+| eval alert_name="Potential C2 Connection", severity="high"
+| table _time, host, process_name, DestinationIp, DestinationPort, alert_name
+
+# --- Process Dump Detection (LSASS) ---
+index=windows_sysmon EventCode=10
+| search TargetImage="*lsass.exe*"
+| eval alert_name="LSASS Process Access", severity="critical"
+| table _time, host, SourceImage, TargetImage, GrantedAccess, alert_name
+
+# --- Data Exfiltration via DNS ---
+index=dns
+| stats count by query, src_ip
+| where match(query, "\.(bit|tok|exe|zip|rar)\.") OR len(query) > 50
+| eval alert_name="Potential DNS Exfiltration", severity="high"
+| table src_ip, query, count, alert_name
+
+# --- Known Malware IP/Domain Beaconing ---
+| inputlookup malicious_indicators.csv
+| fields indicator, indicator_type, threat
+| rename indicator as query
+| join type=inner query [search index=dns]
+| eval alert_name="Malware C2 Beaconing", severity="critical"
+| table _time, src_ip, query, threat, alert_name
+
+# --- Unusual Outbound Traffic ---
+index=net_traffic
+| stats sum(bytes_out) as TotalBytesOut by src_ip, dest_ip, dest_port
+| where TotalBytesOut > 100000000
+| eval alert_name="Unusual Outbound Data Transfer", severity="high"
+| table src_ip, dest_ip, dest_port, TotalBytesOut, alert_name
+
+# --- Registry Run Key Changes ---
+index=windows_registry
+| search "CurrentVersion\\Run"
+| eval alert_name="Registry Persistence Modified", severity="medium"
+| table _time, host, registry_path, value_name, value_data, alert_name
+
+# --- New Scheduled Task ---
+index=windows_system EventCode=4698
+| eval alert_name="Scheduled Task Created", severity="medium"
+| table _time, host, Task_Name, Task_Content, alert_name
+
+# --- Account Enumeration (Kerberoasting precursor) ---
+index=windows_security EventCode=4769
+| search Service_Name=*$ Ticket_Options=*0x40810000*
+| stats count by Account_Name, Client_Address
+| where count > 5
+| eval alert_name="Possible Kerberoasting Activity", severity="high"
+| table Account_Name, Client_Address, count, alert_name
+
+# --- Ransomware Extension Monitoring ---
+index=filesystem
+| search file_extension IN (".locked", ".encrypted", ".crypt", ".onion", ".pay")
+| stats count, values(file_path) as Files by host, user
+| eval alert_name="Possible Ransomware Activity", severity="critical"
+| table host, user, count, Files, alert_name

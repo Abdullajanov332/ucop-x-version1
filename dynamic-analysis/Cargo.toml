@@ -1,0 +1,25 @@
+[package]
+name = "ucx-dynamic-analysis"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "UCOP-X Dynamic Analysis Engine - fuzzing, instrumentation, and runtime analysis"
+
+[dependencies]
+ucx-kernel = { path = "../kernel" }
+ucx-memory = { path = "../memory" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+rayon.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+tempfile.workspace = true
+
+[lib]
+name = "ucx_dynamic_analysis"
+path = "src/lib.rs"

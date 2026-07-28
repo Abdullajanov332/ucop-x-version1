@@ -1,0 +1,22 @@
+[package]
+name = "ucx-test-framework"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "UCOP-X Test Framework - integration testing, fuzzing, and property-based testing infrastructure"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+tempfile.workspace = true
+
+[lib]
+name = "ucx_test_framework"
+path = "src/lib.rs"

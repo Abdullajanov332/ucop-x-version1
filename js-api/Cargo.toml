@@ -1,0 +1,22 @@
+[package]
+name = "ucx-js-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "UCOP-X JavaScript/TypeScript API - JS runtime integration and API bindings"
+
+[dependencies]
+ucx-kernel = { path = "../kernel" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+
+[lib]
+name = "ucx_js_api"
+path = "src/lib.rs"

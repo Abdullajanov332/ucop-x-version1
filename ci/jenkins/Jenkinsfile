@@ -1,0 +1,91 @@
+pipeline {
+    agent {
+        label 'linux'
+    }
+
+    environment {
+        CARGO_HOME = "${WORKSPACE}/.cargo"
+        RUSTFLAGS = "-D warnings"
+    }
+
+    stages {
+        stage('Setup') {
+            steps {
+                // Clean workspace
+                cleanWs()
+
+                // Install Rust if not present
+                sh '''
+                    if ! command -v rustc &> /dev/null; then
+                        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+                        . "$HOME/.cargo/env"
+                    fi
+                '''
+            }
+        }
+
+        stage('Check') {
+            steps {
+                sh 'cargo check --workspace --all-features'
+                sh 'cargo fmt --all -- --check'
+                sh 'cargo clippy --workspace --all-features -- -D warnings'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'cargo test --workspace --all-features --no-fail-fast'
+            }
+            post {
+                always {
+                    junit 'target/nextest/**/junit.xml'
+                }
+            }
+        }
+
+        stage('Security Audit') {
+            steps {
+                sh 'cargo audit'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'cargo build --workspace --all-features --release'
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'target/release/**', fingerprint: true
+                }
+            }
+        }
+
+        stage('Documentation') {
+            steps {
+                sh 'cargo doc --workspace --all-features --no-deps'
+            }
+            post {
+                success {
+                    publishHTML(target: [
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'target/doc',
+                        reportFiles: 'index.html',
+                        reportName: 'RustDoc'
+                    ])
+                }
+            }
+        }
+    }
+
+    post {
+        failure {
+            emailext(
+                to: 'dev@ucop-x.io',
+                subject: "UCOP-X Build Failed: ${env.BUILD_NUMBER}",
+                body: "The UCOP-X build ${env.BUILD_NUMBER} failed.\nCheck ${env.BUILD_URL} for details."
+            )
+        }
+    }
+}

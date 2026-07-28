@@ -1,0 +1,25 @@
+[package]
+name = "ucx-os-windows"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "UCOP-X Windows OS Integration - process enumeration, registry access, and Windows API interaction"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3", features = ["processthreadsapi", "tlhelp32", "winbase", "winreg", "sysinfoapi"] }
+
+[dependencies]
+ucx-kernel = { path = "../../kernel" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+
+[lib]
+name = "ucx_os_windows"
+path = "src/lib.rs"

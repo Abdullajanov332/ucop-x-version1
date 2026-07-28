@@ -1,0 +1,97 @@
+// UCOP-X KQL Detection Queries
+// Azure Sentinel & Microsoft Defender Kusto Query Language queries
+
+// --- Brute Force Detection ---
+let BruteForceThreshold = 10;
+SigninLogs
+| where TimeGenerated > ago(1h)
+| where ResultType == "50057" or ResultType == "50126"
+| summarize FailedAttempts = count(), Accounts = make_set(UserPrincipalName) by IPAddress = IPAddress
+| where FailedAttempts > BruteForceThreshold
+| project IPAddress, FailedAttempts, Accounts, AlertTime = now()
+| extend AlertName = "Possible Brute Force Attack"
+
+// --- Malicious PowerShell Detection ---
+DeviceEvents
+| where TimeGenerated > ago(24h)
+| where ActionType == "PowerShellCommand"
+| extend PowerShellCommand = tostring(AdditionalFields.Command)
+| where PowerShellCommand matches regex @"(?i)(-enc|EncodedCommand|FromBase64String|Invoke-Expression|iex)"
+| project Timestamp = TimeGenerated, DeviceName, PowerShellCommand
+| extend AlertName = "Suspicious PowerShell Command"
+
+// --- Network Scanning Detection ---
+DeviceNetworkEvents
+| where TimeGenerated > ago(1h)
+| where ActionType == "ConnectionSuccess"
+| summarize ConnectionCount = count(), DestinationPorts = make_set(DestinationPort) by InitiatingProcessFileName, DeviceName
+| where ConnectionCount > 50
+| extend AlertName = "Possible Network Scanning"
+
+// --- Ransomware File Extension Detection ---
+let RansomwareExtensions = dynamic([".locked", ".encrypted", ".enc", ".crypt", ".onion", ".pay", ".wanna", ".cry", ".lck"]);
+DeviceFileEvents
+| where TimeGenerated > ago(4h)
+| where ActionType == "FileCreated"
+| extend FileExtension = tostring(parse_path(FileName).Extension)
+| where FileExtension in (RansomwareExtensions)
+| summarize FilesCreated = count(), FileList = make_set(FileName) by DeviceName, InitiatingProcessFileName
+| project DeviceName, InitiatingProcessFileName, FilesCreated, FileList
+| extend AlertName = "Possible Ransomware Activity"
+
+// --- Pass-the-Hash Detection ---
+IdentityLogonEvents
+| where TimeGenerated > ago(1d)
+| where LogonType == "Network"
+| summarize LogonAttempts = count(), TargetComputers = make_set(TargetDeviceName) by AccountUpn, SourceIPAddress
+| where LogonAttempts > 20 or array_length(TargetComputers) > 5
+| extend AlertName = "Possible Lateral Movement"
+
+// --- Sensitive Data Exfiltration ---
+DeviceFileEvents
+| where TimeGenerated > ago(1d)
+| where ActionType == "FileCreated" or ActionType == "FileModified"
+| where FileName matches regex @"(?i)(\.zip|\.rar|\.7z|\.tar\.gz)"
+| summarize FilesCreated = count(), FileNames = make_set(FileName), DeviceCount = dcount(DeviceName) by InitiatingProcessFileName
+| where DeviceCount > 3
+| extend AlertName = "Potential Data Staging for Exfiltration"
+
+// --- Anomalous RDP Connections ---
+DeviceLogonEvents
+| where TimeGenerated > ago(1d)
+| where LogonType == "RemoteInteractive"
+| where LogonMethod == "RDP"
+| summarize ConnectionCount = count(), TargetDevices = make_set(DeviceName) by AccountName, RemoteIP = RemoteIPAddress
+| where ConnectionCount > 30
+| extend AlertName = "Anomalous RDP Activity"
+
+// --- Registry Persistence ---
+DeviceRegistryEvents
+| where TimeGenerated > ago(7d)
+| where ActionType == "SetValue" or ActionType == "CreateKey"
+| where RegistryKey contains @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+| project Timestamp = TimeGenerated, DeviceName, RegistryKey, RegistryValueName, RegistryValueData
+| extend AlertName = "Registry Persistence Mechanism Installed"
+
+// --- Scheduled Task Creation ---
+DeviceEvents
+| where TimeGenerated > ago(7d)
+| where ActionType == "ScheduledTaskCreated"
+| project Timestamp = TimeGenerated, DeviceName, TaskName = tostring(parse_json(AdditionalFields).TaskName), TaskContent = tostring(parse_json(AdditionalFields).TaskContent)
+| extend AlertName = "Scheduled Task Created"
+
+// --- Multiple Failed Logons by User ---
+let FailedThreshold = 5;
+SigninLogs
+| where TimeGenerated > ago(1h)
+| where ResultType !~ "0"
+| summarize FailedAttempts = count() by UserPrincipalName, IPAddress
+| where FailedAttempts > FailedThreshold
+| join kind=leftanti (
+    SigninLogs
+    | where TimeGenerated > ago(1h)
+    | where ResultType == "0"
+    | summarize SuccessAttempts = count() by UserPrincipalName, IPAddress
+) on UserPrincipalName, IPAddress
+| project UserPrincipalName, IPAddress, FailedAttempts
+| extend AlertName = "User Account Brute Force"

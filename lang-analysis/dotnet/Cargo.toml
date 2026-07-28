@@ -1,0 +1,22 @@
+[package]
+name = "ucx-lang-dotnet"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "UCOP-X .NET Analysis - C#/VB.NET bytecode analysis, assembly inspection, and deobfuscation"
+
+[dependencies]
+ucx-kernel = { path = "../../kernel" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+
+[lib]
+name = "ucx_lang_dotnet"
+path = "src/lib.rs"

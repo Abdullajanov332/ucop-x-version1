@@ -1,0 +1,28 @@
+[package]
+name = "ucx-threat-intel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "UCOP-X Threat Intelligence Engine - IOC management, feeds, and enrichment"
+
+[dependencies]
+ucx-kernel = { path = "../kernel" }
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+hex.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+rstest.workspace = true
+
+[lib]
+name = "ucx_threat_intel"
+path = "src/lib.rs"

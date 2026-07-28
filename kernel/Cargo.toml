@@ -1,0 +1,43 @@
+[package]
+name = "ucx-kernel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "UCOP-X Enterprise Microkernel Core"
+
+[lib]
+name = "ucx_kernel"
+crate-type = ["lib", "staticlib"]
+bench = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+bincode.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+parking_lot.workspace = true
+dashmap.workspace = true
+crossbeam.workspace = true
+rayon.workspace = true
+num_cpus.workspace = true
+fxhash.workspace = true
+once_cell.workspace = true
+bitflags.workspace = true
+hex.workspace = true
+zeroize.workspace = true
+bytes.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+rstest.workspace = true
+proptest.workspace = true
+
+[[bench]]
+name = "event_bus_bench"
+harness = false
